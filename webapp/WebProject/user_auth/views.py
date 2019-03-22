@@ -19,9 +19,9 @@ import sys
 import boto3
 from django.conf import settings
 import logging
-# from django_statsd.clients import statsd
-# #
-# statsd.incr('response.200')
+from django_statsd.clients import statsd
+#
+
 # #--------------------------------------------------------------------------------
 # Define Logger
 # --------------------------------------------------------------------------------
@@ -267,6 +267,7 @@ def is_valid_uuid(uuid_to_test, version=4):
 
 @csrf_exempt
 def registerPage(request):
+	statsd.incr('api.registerPage')
 	# check if method is post
 	if request.method == 'POST':
 		try:
@@ -308,6 +309,7 @@ def registerPage(request):
 
 @csrf_exempt
 def signin(request):
+	statsd.incr('api.signin')
 	# statsd.incr('test2')
 
 	# check if method is get
@@ -331,10 +333,12 @@ def signin(request):
 
 @csrf_exempt
 def createOrGetNotes(request):
+	statsd.incr('api.note')
 	try:
 		logger.debug("Request Method : %s /note", request.method)
 		# Post method to create new notes for authorized user
 		if request.method == 'POST':
+			statsd.incr('api.note.POST')
 			if (request.POST):
 				try:
 					title = request.POST.get('title')
@@ -354,15 +358,19 @@ def createOrGetNotes(request):
 							logger.info("No Attachment added")
 						message = get_note_details(note)
 						logger.info("Note Saved")
+						statsd.incr('api.note.POST.200')
 						return JsonResponse(message, status=200)
 					else:
 						logger.debug("Incorrect user details")
+						statsd.incr('api.note.POST.401')
 						return JsonResponse({'message': 'Error : User not authorized'}, status=401)
 				except:
 					logger.debug("Incorrect request")
+					statsd.incr('api.note.POST.400')
 					return JsonResponse({'message': 'Error : provide title(req), content(req) and attachment(optional) in form-data'}, status=400)
 		# Get method to retrive all notes for authorized user
 		elif request.method == 'GET':
+			statsd.incr('api.note.GET')
 			user = validateSignin(request.META)
 			if (user):
 				notes = NotesModel.objects.filter(user=user)
@@ -373,23 +381,30 @@ def createOrGetNotes(request):
 						message = get_note_details(note)
 						message_list.append(message)
 					logger.info("Notes displayed")
+					statsd.incr('api.note.GET.200')
 					return JsonResponse(message_list, status=200, safe=False)
 				else:
 					logger.info("Notes Empty")
+					statsd.incr('api.note.GET.204')
 					return JsonResponse({'message': 'Error : Note List Empty'}, status=204)
 			logger.debug("Incorrect user details")
+			statsd.incr('api.note.GET.401')
 			return JsonResponse({'message': 'Error : Incorrect user details'}, status=401)
 		logger.debug("Incorrect request")
+		statsd.incr('api.note.GET.400')
 		return JsonResponse({'message': 'Error : Incorrect Request'}, status=400)
 	except Exception as e:
 		logger.error("Something Happened: %s", e)
+		statsd.incr('api.note.GET.400')
 		return JsonResponse({'Error': 'Bad Request'}, status=400)
 
 @csrf_exempt
 def noteFromId(request, note_id=""):
+	statsd.incr('api.note_id')
 	try:
 		logger.debug("Request Method : %s /note/<note_id>",request.method)
 		if request.method == 'GET':
+			statsd.incr('api.note_id')
 			user = validateSignin(request.META)
 			if (is_valid_uuid(note_id)):
 				if (user):
@@ -398,21 +413,27 @@ def noteFromId(request, note_id=""):
 						if (note.user==user):
 							message = get_note_details(note)
 							logger.info("Notes displayed")
+							statsd.incr('api.note_id.GET.200')
 							return JsonResponse(message, status=200)
 						else:
 							logger.debug("Notes not found")
+							statsd.incr('api.note_id.GET.400')
 							return JsonResponse({'message': 'Error : Note not found'}, status=404)
 					except:
 						logger.debug("Note not found")
+						statsd.incr('api.note_id.GET.404')
 						return JsonResponse({'message': 'Error : Note not found'}, status=404)
 				else:
 					logger.debug("Incorrect user details")
+					statsd.incr('api.note_id.GET.401')
 					return JsonResponse({'message': 'Error : Incorrect user details'}, status=401)
 			else:
 				logger.debug("Invalid Note ID")
+				statsd.incr('api.note_id.GET.400')
 				return JsonResponse({'message': 'Error : Invalid Note ID'}, status=400)
 		#update
 		elif request.method=='PUT':
+			statsd.incr('api.note_id.PUT')
 			user = validateSignin(request.META)
 			if (is_valid_uuid(note_id)):
 				if(user):
@@ -423,9 +444,11 @@ def noteFromId(request, note_id=""):
 								note.title = request.PUT.get('title')
 								note.content = request.PUT.get('content')
 								note.last_updated_on = datetime.datetime.now()	
+								statsd.incr('api.note_id.PUT.200')
 								note.save()
 							except:
 								logger.debug("Invalid note id")
+								statsd.incr('api.note_id.PUT.400')
 								return JsonResponse({'message': 'Error : Invalid note id'}, status=400)		
 							#If attachment is sent as PUT method while updating note
 							try:
@@ -436,30 +459,38 @@ def noteFromId(request, note_id=""):
 									logger.info("No Attachment added")
 							except:
 								logger.debug("Invalid attachment")
+								statsd.incr('api.note_id.PUT.400')
 								return JsonResponse({'message': 'Error : Invalid attachment'}, status=400)
 							logger.info("Note updated")
 							message = get_note_details(note)
+							statsd.incr('api.note_id.PUT.204')
 							return JsonResponse(message, status=204)
 						else:
 							logger.debug("Invalid note id")
+							statsd.incr('api.note_id.PUT.401')
 							return JsonResponse({'message': 'Error : Invalid note id'}, status=401)
 					except:
 						logger.debug("Invalid note id")
+						statsd.incr('api.note_id.PUT.401')
 						return JsonResponse({'message': 'Error : Invalid note id'}, status=401)
 				else:
 					logger.debug("Incorrect user details")
+					statsd.incr('api.note_id.PUT.400')
 					return JsonResponse({'message': 'Error : Incorrect user details'}, status=400)
 			else:
 				logger.debug("Invalid note id")
+				statsd.incr('api.note_id.PUT.400')
 				return JsonResponse({'message': 'Error : Invalid note id'}, status=401)
 		#delete
 		elif request.method == 'DELETE':
+			statsd.incr('api.note_id.DELETE')
 			user = validateSignin(request.META)
 			if (user):
 				try:
 					note = NotesModel.objects.get(pk=note_id)
 				except:
 					logger.debug("Invalid note id")
+					statsd.incr('api.note_id.DELETE.400')
 					return JsonResponse({'Error': 'Invalid note ID'}, status=400)
 				if(note):
 					if(user == note.user):
@@ -470,23 +501,29 @@ def noteFromId(request, note_id=""):
 								delete_attachment(attachment)
 						note.delete()
 						logger.info("Note Deleted")
+						statsd.incr('api.note_id.DELETE.204')
 						return JsonResponse({'message':'Note Deleted!'}, status=204)
 					else:
 						logger.debug("Invalid note id")
+						statsd.incr('api.note_id.DELETE.400')
 						return JsonResponse({'message': 'Error : Invalid Note ID'}, status=400)
 			else:
 				logger.debug("Incorrect user details")
+				statsd.incr('api.note_id.DELETE.401')
 				return JsonResponse({'message': 'Error : Incorrect user details'}, status=401)
 	except Exception as e:
 		logger.error("Something Happened: %s", e)
+		statsd.incr('api.note_id.DELETE.400')
 		return JsonResponse({'Error': 'Bad Request'}, status=400)
 
 @csrf_exempt
 def addAttachmentToNotes(request,note_id=""):
+	statsd.incr('api.note_attachment')
 	try:
 		logger.debug("Request Method : %s /note/<note_id>/attachments", request.method)
 		# Post method to create new notes for authorized user
 		if request.method == 'POST':
+			statsd.incr('api.note_attachment.POST')
 			if (request.FILES):
 				user = validateSignin(request.META)
 				if(user):
@@ -495,9 +532,11 @@ def addAttachmentToNotes(request,note_id=""):
 							note = NotesModel.objects.get(pk=note_id)
 						except:
 							logger.debug("Invalid note id")
+							statsd.incr('api.note_attachment.POST.400')
 							return JsonResponse({'Error': 'Invalid note ID'}, status=400)
 					else:
 						logger.debug("Invalid note id")
+						statsd.incr('api.note_attachment.POST.400')
 						return JsonResponse({'Error': 'Invalid note ID'}, status=400)
 					if(note.user==user):
 						file = request.FILES['attachment']
@@ -505,15 +544,19 @@ def addAttachmentToNotes(request,note_id=""):
 						note.last_updated_on = datetime.datetime.now()	
 						note.save()
 						message = get_attachment_details(attachment)
+						statsd.incr('api.note_attachment.POST.200')
 						return JsonResponse(message, status=200)
 					else:
 						logger.debug("Incorrect user details")
+						statsd.incr('api.note_attachment.POST.401')
 						return JsonResponse({'message': 'Error : Invalid User Credentials'}, status=401)
 				else:
 					logger.debug("Incorrect user details")
+					statsd.incr('api.note_attachment.POST.401')
 					return JsonResponse({'message': 'Error : Invalid User Credentials'}, status=401)
 			else:
 				logger.debug("No Files Attached")
+				statsd.incr('api.note_attachment.POST.400')
 				return JsonResponse({'message': 'Error : Files not selected'}, status=400)
 
 		# GET method to create new notes for authorized user
@@ -525,9 +568,11 @@ def addAttachmentToNotes(request,note_id=""):
 						note = NotesModel.objects.get(pk=note_id)
 					except:
 						logger.debug("Invalid note id")
+						statsd.incr('api.note_attachment.GET.400')
 						return JsonResponse({'Error': 'Invalid note ID'}, status=400)
 				else:
 					logger.debug("Invalid note id")
+					statsd.incr('api.note_attachment.GET.400')
 					return JsonResponse({'Error': 'Invalid note ID'}, status=400)
 				if(note.user==user):
 					message = {}
@@ -538,27 +583,35 @@ def addAttachmentToNotes(request,note_id=""):
 							attachment_list.append(get_attachment_details(attachment))
 						message['attachments'] = attachment_list
 						logger.info("Attachments added")
+						statsd.incr('api.note_attachment.GET.200')
 						return JsonResponse(message, status=200)
 					else:
 						logger.debug("No attachments added to note")
+						statsd.incr('api.note_attachment.GET.200')
 						return JsonResponse({'message': 'No Attachments added to note'}, status=200)
 				else:
 					logger.debug("Incorrect user details")
+					statsd.incr('api.note_attachment.GET.401')
 					return JsonResponse({'message': 'Error : Invalid User Credentials'}, status=401)
 			else:
 				logger.debug("Incorrect user details")
+				statsd.incr('api.note_attachment.GET.401')
 				return JsonResponse({'message': 'Error : Invalid User Credentials'}, status=401)
 		logger.debug("Request method should be GET or POST")
+		statsd.incr('api.note_attachment.GET.400')
 		return JsonResponse({'message': 'Error : Request method should be GET or POST'}, status=400)
 	except Exception as e:
 		logger.error("Something Happened: %s", e)
+		statsd.incr('api.note_attachment.GET.400')
 		return JsonResponse({'Error': 'Bad Request'}, status=400)
 @csrf_exempt
 def updateOrDeleteAttachments(request,note_id="",attachment_id=""):
+	statsd.incr('api.note_attachment_id')
 	# Update method to update attachments for authorized user
 	try:
 		logger.debug("Request Method : %s /note/<note_id>/attachments/<attachment_id>", request.method)
 		if request.method == 'PUT':
+			statsd.incr('api.note_attachment_id.PUT')
 			if(request.FILES):
 				user = validateSignin(request.META)
 				if(user):
@@ -567,18 +620,22 @@ def updateOrDeleteAttachments(request,note_id="",attachment_id=""):
 							note = NotesModel.objects.get(pk=note_id)
 						except:
 							logger.debug("Invalid note id")
+							statsd.incr('api.note_attachment_id.PUT.400')
 							return JsonResponse({'Error': 'Invalid note ID'}, status=400)
 					else:
 						logger.debug("Invalid note id")
+						statsd.incr('api.note_attachment_id.PUT.400')
 						return JsonResponse({'Error': 'Invalid note ID'}, status=400)
 					if(is_valid_uuid(attachment_id)):
 						try:
 							attachment = Attachment.objects.get(pk=attachment_id)
 						except:
 							logger.debug("Invalid attachment id")
+							statsd.incr('api.note_attachment_id.PUT.400')
 							return JsonResponse({'Error': 'Invalid attachment ID'}, status=400)
 					else:
 						logger.debug("Invalid attachment id")
+						statsd.incr('api.note_attachment_id.PUT.400')
 						return JsonResponse({'Error': 'Invalid attachment ID'}, status=400)
 					
 					if(note.user == user):
@@ -589,18 +646,23 @@ def updateOrDeleteAttachments(request,note_id="",attachment_id=""):
 							note.save()
 							message = get_attachment_details(new_attachment)
 							logger.info("Attachment updated")
+							statsd.incr('api.note_attachment_id.PUT.200')
 							return JsonResponse(message, status=200)
 						else:
 							logger.debug("Invalid attachment id")
+							statsd.incr('api.note_attachment_id.PUT.400')
 							return JsonResponse({'Error': 'Invalid attachment ID'}, status=400)
 					else:
 						logger.debug("Incorrect user details")
+						statsd.incr('api.note_attachment_id.PUT.401')
 						return JsonResponse({'message': 'Error : Invalid User Credentials'}, status=401)
 			else:
 				logger.debug("Files not selected")
+				statsd.incr('api.note_attachment_id.PUT.400')
 				return JsonResponse({'message': 'Error : Files not selected'}, status=400)
 		# Delete method to delete attachments for authorized user
 		if request.method == 'DELETE':
+			statsd.incr('api.note_attachment_id.DELETE')
 			user = validateSignin(request.META)
 			if(user):
 				if(is_valid_uuid(note_id)):
@@ -608,18 +670,22 @@ def updateOrDeleteAttachments(request,note_id="",attachment_id=""):
 						note = NotesModel.objects.get(pk=note_id)
 					except:
 						logger.debug("Invalid note id")
+						statsd.incr('api.note_attachment_id.DELETE.400')
 						return JsonResponse({'Error': 'Invalid note ID'}, status=400)
 				else:
 					logger.debug("Invalid note id")
+					statsd.incr('api.note_attachment_id.DELETE.400')
 					return JsonResponse({'Error': 'Invalid note ID'}, status=400)
 				if(is_valid_uuid(attachment_id)):
 					try:
 						attachment = Attachment.objects.get(pk=attachment_id)
 					except:
 						logger.debug("Invalid attachment id")
+						statsd.incr('api.note_attachment_id.DELETE.400')
 						return JsonResponse({'Error': 'Invalid attachment ID'}, status=400)
 				else:
 					logger.debug("Invalid attachment id")
+					statsd.incr('api.note_attachment_id.DELETE.400')
 					return JsonResponse({'Error': 'Invalid attachment ID'}, status=400)
 				if(note.user == user):
 					if(attachment.note.id == note.id):
@@ -628,22 +694,29 @@ def updateOrDeleteAttachments(request,note_id="",attachment_id=""):
 						note.last_updated_on = datetime.datetime.now()
 						note.save()
 						logger.info("Attachment Deleted")
+						statsd.incr('api.note_attachment_id.DELETE.200')
 						return JsonResponse({'message': 'Attachment Deleted'}, status=200)
 					else:
 						logger.debug("Invalid attachment id")
+						statsd.incr('api.note_attachment_id.DELETE.400')
 						return JsonResponse({'Error': 'Invalid attachment ID'}, status=400)
 				else:
 					logger.debug("Incorrect user details")
+					statsd.incr('api.note_attachment_id.DELETE.401')
 					return JsonResponse({'message': 'Error : Invalid User Credentials'}, status=401)
 			else:
 				logger.debug("Incorrect user details")
+				statsd.incr('api.note_attachment_id.DELETE.401')
 				return JsonResponse({'message': 'Error : Invalid User Credentials'}, status=401)
 		logger.debug(" Request method should be PUT or DELETE")
+		statsd.incr('api.note_attachment_id.DELETE.400')
 		return JsonResponse({'message': 'Error : Request method should be PUT or DELETE'}, status=400)
 	except Exception as e:
 		logger.error("Something Happened: %s", e)
+		statsd.incr('api.note_attachment_id.DELETE.400')
 		return JsonResponse({'Error': 'Bad Request'}, status=400)
 
 @csrf_exempt
 def get404(request):
+	statsd.incr('api.404')
 	return JsonResponse({'Error': 'Page not found'}, status=404)
