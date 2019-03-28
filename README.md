@@ -119,6 +119,10 @@ where user is the username and password is the password. Expected Response:
 
 Registered successfully
 
+3. To reset the password, use execute following command on your bash shell:
+```bash
+$ curl http://{EC2_hostname}/reset
+```
 
 ## Deploy Instructions
 
