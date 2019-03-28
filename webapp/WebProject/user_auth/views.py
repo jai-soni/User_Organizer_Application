@@ -20,7 +20,7 @@ import boto3
 from django.conf import settings
 import logging
 from django_statsd.clients import statsd
-#
+from boto3.dynamodb.conditions import Key, Attr
 
 # #--------------------------------------------------------------------------------
 # Define Logger
@@ -228,7 +228,8 @@ def validatePassword(password):
 
 # Validing username
 def validateUserName(username):
-	valid = re.search(r'^\w+@[a-zA-Z_]+?\.[a-zA-Z]{2,3}$', username)
+	valid = re.search(r'\w+[.|\w]\w+@\w+[.]\w+[.|\w+]\w+', username)
+	# valid = re.search(r'^\w+@[a-zA-Z_]+?\.[a-zA-Z]{2,3}$', username)
 	if valid:
 		return True
 	return "* please enter valid email ID *"
@@ -720,3 +721,45 @@ def updateOrDeleteAttachments(request,note_id="",attachment_id=""):
 def get404(request):
 	statsd.incr('api.404')
 	return JsonResponse({'Error': 'Page not found'}, status=404)
+
+@csrf_exempt
+def passwordReset(request):
+	statsd.incr('api.passwordReset')
+	email=request.POST.get('email')
+	print(email)
+	print(type(email))
+	#Get email and verify if it exists in db
+	if (email == ""):
+		logger.debug("email is empty")
+		return JsonResponse({'message': 'Email cant be empty'}, status=400)
+	email_status = validateUserName(email)
+	domain_name = settings.DOMAIN_NAME
+	if email_status== True:
+		if User.objects.filter(username=email).exists():
+			logger.info("Sending notification to SNS")
+			client = boto3.client('sns',region_name='us-east-1')
+			response = client.publish(
+				TargetArn=settings.SNSTOPICARN,
+				MessageStructure='String',
+				Message="Reset Email",
+				MessageAttributes={
+					"URL": {
+							"DataType": "String",
+							"StringValue": str(domain_name)
+						},
+					"email": {
+							"DataType" : "String",
+							"StringValue" : str(email)
+						}
+					}
+				)
+			statsd.incr('api.passwordReset.POST.200')
+			return JsonResponse({"message": " : you will receive password reset link if the email address exists in our system"})
+		else:
+			statsd.incr('api.passwordReset.POST.400')
+			return JsonResponse({"message": " : you will receive password reset link if the email address exists in our system"})
+	else:
+		statsd.incr('api.passwordReset.POST.400')
+		return JsonResponse(email_status, status=400)
+
+

@@ -1,0 +1,68 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: CSYE 6225 - serverless stack
+
+Parameters:
+  SNSTOPICARN:
+    Default: "arn:aws:sns:us-east-1:<account_id>:SNSTopicResetPassword"
+    Description: SNS topic ARN for reset password
+    Type: String
+  LAMBDABUCKET:
+    Default: "lambda.csye6225-spring2019-sonij.me"
+    Description: S3 Bucket name for lambda func
+    Type: String
+
+Resources:
+  SNSTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      DisplayName: MySNSTopic
+      TopicName: SNSTopicResetPassword
+      Subscription:
+      - Endpoint:
+          Fn::GetAtt:
+          - LambdaFunction
+          - Arn
+        Protocol: lambda
+  LambdaResourcePolicy:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName:
+        Ref: LambdaFunction
+      Principal: sns.amazonaws.com
+      Action: lambda:InvokeFunction
+      SourceArn:
+        Ref: SNSTOPICARN
+  LambdaExecRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service:
+            - lambda.amazonaws.com
+          Action:
+          - sts:AssumeRole
+      ManagedPolicyArns:
+      - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      - arn:aws:iam::aws:policy/AmazonSESFullAccess
+      - arn:aws:iam::aws:policy/AmazonSNSFullAccess
+      - arn:aws:iam::aws:policy/AmazonDynamoDBFullAccess
+      RoleName: LambdaExecRole
+  LambdaFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      Handler: lambda-func.lambda_handler
+      Role:
+        Fn::GetAtt:
+        - LambdaExecRole
+        - Arn
+      Code:
+        S3Bucket:
+          Ref: LAMBDABUCKET
+        S3Key: lambda-test.zip
+      Runtime: python3.6
+      FunctionName: csye6225-spring2019-lambda
+      MemorySize: 128
+      Timeout: 180

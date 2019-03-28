@@ -36,7 +36,7 @@ source initSetup.sh -u YOURUSERNAME -p YOURPASSWORD -d YOURDBNAME
 1. To run django server
 Navigate to csye6225-spring2019/webapp folder and activate the django environment
 ```bash
-cd csye6225-spring2019/webapp
+cd csye6225-spring2019/webapp/WebProject
 source djangoEnv/bin/activate
 ```
 2. To start the server navigate to csye6225-spring2019/webapp/WebProject/
@@ -139,3 +139,11 @@ python3 manage.py test
 Any changes made to master branch will trigger a new build
 
 
+## Checking UDP port for statsd streaming
+
+_**Note:**_
+To begin, use the command '$tcpdump -D' to see which interfaces are available for capture:
+```bash
+sudo tcpdump -D
+sudo tcpdump -i lo udp port 8125 -A
+```

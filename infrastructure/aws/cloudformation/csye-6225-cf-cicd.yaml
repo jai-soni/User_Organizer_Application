@@ -15,6 +15,9 @@ Parameters:
   S3BucketNameCD:
     Description: S3BucketNameCD
     Type: String
+  LambdaBucketNameCD:
+    Description: S3BucketNameCD
+    Type: String
 Resources:
 
   CodeDeployServiceRole:
@@ -70,8 +73,17 @@ Resources:
           Statement: 
             Action: 
               - "s3:PutObject"
+              - "s3:GetObject"
             Effect: Allow
-            Resource: !Join ["",["arn:aws:s3:::",!Ref S3BucketNameCD,"/*"]]
+            Resource: [!Join ["",["arn:aws:s3:::",!Ref S3BucketNameCD,"/*"]],!Join ["",["arn:aws:s3:::",!Ref LambdaBucketNameCD,"/*"]]]
+      - PolicyName: CircleCILambda
+        PolicyDocument:
+          Version: "2012-10-17"
+          Statement: 
+            Action: 
+              - "lambda:*"
+            Effect: Allow
+            Resource : "*"
       - PolicyName: CirlceCICodeDeploy
         PolicyDocument:
           Version: "2012-10-17"

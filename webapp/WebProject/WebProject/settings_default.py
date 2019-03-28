@@ -33,6 +33,7 @@ config = configparser.ConfigParser()
 pathToConfig = os.path.join(BASE_DIR, 'WebProject/config/my.cnf')
 config.read(pathToConfig)
 #Get variable
+# SNSTOPICARN= config['Config']['SNSTOPICARN']
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/2.1/howto/deployment/checklist/
@@ -44,6 +45,8 @@ SECRET_KEY = 'l_k3zyn7$2j*vsvk&m3t5&*bp++r*=v*$c9gmoiy9z0xk5u_6m'
 DEBUG = True
 
 ALLOWED_HOSTS = ['*']
+SNSTOPICARN= config['Config']['SNSTOPICARN']
+DOMAIN_NAME= config['Config']['DOMAIN_NAME']
 
 # Define whether to run in dev environment or default(local) environment
 PROFILE = 'default'

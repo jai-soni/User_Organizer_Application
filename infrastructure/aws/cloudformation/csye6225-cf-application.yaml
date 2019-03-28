@@ -34,7 +34,14 @@ Parameters:
     Default: "code-deploy.raik.me.csye6225.com"
     Description: S3 Bucket parameter (eg test1-sree)
     Type: String
-
+  SNSTOPICARN:
+    Default: "arn:aws:sns:us-east-1:<account_id>:SNSTopicResetPassword"
+    Description: SNS topic ARN for reset password
+    Type: String
+  DomainName:
+    Default: "csye6225-s19-mandakathils.me."
+    Description: Domain Name for the server
+    Type: String
 
 Resources:
 
@@ -93,7 +100,9 @@ Resources:
                 "RDS_UN=csye6225master",
                 "RDS_PASSWORD=csye6225password",
                 "RDS_DB=csye6225",
+                !Join ["",["DOMAIN_NAME=",!Ref DomainName]],
                 !Join ["",["S3_BUCKET=",!Ref S3BucketName]],
+                !Join ["",["SNSTOPICARN=",!Ref SNSTOPICARN]],
                 "EOF",
               ]
       BlockDeviceMappings: 
@@ -138,6 +147,9 @@ Resources:
         ReadCapacityUnits: "5"
         WriteCapacityUnits: "5"
       TableName: "csye6225"
+      TimeToLiveSpecification:
+        AttributeName: passwordTokenExpiry
+        Enabled: 'true'
       Tags:
       - Key: Name
         Value:
@@ -249,3 +261,16 @@ Resources:
                 Fn::Join:
                 - ''
                 - ['arn:aws:s3:::',!Ref S3BucketName,'/*']
+  SNSAccess:
+    Type: AWS::IAM::ManagedPolicy
+    Properties:
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+        - Action:
+          - sns:*
+          Effect: Allow
+          Resource: "*"
+      ManagedPolicyName: SNSAccess
+      Roles:
+      - Ref: CodeDeployEC2ServiceRole

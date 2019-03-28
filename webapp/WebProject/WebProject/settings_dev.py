@@ -56,6 +56,9 @@ ALLOWED_HOSTS = ['*']
 PROFILE = 'dev'
 
 S3_BUCKETNAME = config['Config']['S3_BUCKET']
+SNSTOPICARN= config['Config']['SNSTOPICARN']
+DOMAIN_NAME= config['Config']['DOMAIN_NAME']
+DOMAIN_NAME=DOMAIN_NAME[:-1]
 
 # Application definition
 
