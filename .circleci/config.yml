@@ -62,4 +62,5 @@ workflows:
                   - assignment5
                   - assignment6
                   - assignment7
+                  - assignment8
                   - master

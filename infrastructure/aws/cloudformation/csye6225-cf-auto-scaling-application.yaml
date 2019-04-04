@@ -1,0 +1,495 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: CSYE 6225 - application cf stack
+
+Parameters:
+  ImageIdparam:
+    Default: "ami-0282cf077acf11412"
+    Description: ImageId parameter (eg ami-0282cf077acf11412)
+    Type: String
+  EC2Subnet:
+    Default: "subnet-08edd817a280766ff"
+    Description: subnet parameter (eg subnet-08edd817a280766ff)
+    Type: String
+  myVPC:
+    Default: "vpc-0b9b80e139f334558"
+    Description: VPC parameter (eg vpc-0b9b80e139f334558)
+    Type: String
+  RDSSubnet1:
+    Default: "subnet-054379b3f39cce09e"
+    Description: subnet parameter (eg subnet-08edd817a280766ff)
+    Type: String  
+  RDSSubnet2:
+    Default: "subnet-054379b3f39cce09e"
+    Description: subnet parameter (eg subnet-08edd817a280766ff)
+    Type: String
+  KeyPair:
+    Default: "test1-sree"
+    Description: Key Pair parameter (eg test1-sree)
+    Type: String
+  S3BucketName:
+    Default: "code-deploy.raik.me.csye6225.com"
+    Description: S3 Bucket parameter (eg test1-sree)
+    Type: String
+  S3BucketNameCD:
+    Default: "code-deploy.raik.me.csye6225.com"
+    Description: S3 Bucket parameter (eg test1-sree)
+    Type: String
+  SNSTOPICARN:
+    Default: "arn:aws:sns:us-east-1:<account_id>:SNSTopicResetPassword"
+    Description: SNS topic ARN for reset password
+    Type: String
+  DomainName:
+    Default: "csye6225-s19-mandakathils.me."
+    Description: Domain Name for the server
+    Type: String
+  DomainCert:
+    Default: "arn:aws:acm:us-east-1:165960615265:certificate/bcb8fa5c-f3df-4c5e-b948-d2c40d5c68e9"
+    Description: Domain Cert
+    Type: String
+
+Resources:
+
+  MyRDSsubnetGroup: 
+    Type: AWS::RDS::DBSubnetGroup
+    Properties:
+      DBSubnetGroupDescription: RDS subnet group
+      SubnetIds: 
+        - Ref: RDSSubnet1
+        - Ref: RDSSubnet2
+        - Ref: EC2Subnet
+      Tags:
+      - Key: Name
+        Value:
+          Fn::Join:
+            - '-'
+            - [{Ref: 'AWS::StackName'}, 'csye6225', 'rds_subnet']
+
+  RDSSecurityGroup: 
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Allow http, SSH and SSL to client host
+      VpcId:
+        Ref: myVPC
+      SecurityGroupIngress:
+      - IpProtocol: tcp
+        FromPort: 3306
+        ToPort: 3306
+        SourceSecurityGroupId: !Ref InstanceSecurityGroup
+      Tags:
+      - Key: Name
+        Value:
+          Fn::Join:
+            - '-'
+            - [{Ref: 'AWS::StackName'}, 'csye6225', 'rds_sg']  
+
+  MyRDSInstance: 
+    Type: AWS::RDS::DBInstance
+    Properties: 
+      AllocatedStorage: "20"
+      DBInstanceClass: "db.t2.medium"
+      DBInstanceIdentifier: "csye6225-spring2019"
+      Engine: "mysql"
+      EngineVersion: "5.6.34"
+      MultiAZ : false
+      MasterUsername: "csye6225master"
+      MasterUserPassword: "csye6225password"
+      PubliclyAccessible: true
+      DBName: "csye6225"
+      DBSubnetGroupName: 
+        Ref: "MyRDSsubnetGroup"
+      VPCSecurityGroups:
+        - {Ref : "RDSSecurityGroup"}
+      Tags:
+      - Key: Name
+        Value:
+          Fn::Join:
+            - '-'
+            - [{Ref: 'AWS::StackName'}, 'csye6225', 'rds']
+
+  CodeDeployEC2ServiceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      Path: "/"
+      RoleName: CodeDeployEC2ServiceRole
+      AssumeRolePolicyDocument: 
+        Version: "2012-10-17" 
+        Statement:
+           - 
+            Effect: "Allow" 
+            Principal:
+              Service: 
+                - "ec2.amazonaws.com" 
+            Action: 
+              - "sts:AssumeRole" 
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSCodeDeployRole
+        - arn:aws:iam::aws:policy/CloudWatchAgentAdminPolicy        
+        - arn:aws:iam::aws:policy/service-role/AmazonEC2RoleforSSM     
+      Policies:
+        - 
+         PolicyName: "EC2-S3-Access"
+         PolicyDocument:
+           Version: "2012-10-17"
+           Statement:            
+            - 
+              Effect: "Allow"
+              Action:
+                - "s3:Get*"
+                - "s3:List*"
+              Resource: 
+                Fn::Join:
+                - ''
+                - ['arn:aws:s3:::',!Ref S3BucketNameCD,'/*']
+        -
+          PolicyName: "Attachment-EC2-S3"
+          PolicyDocument:
+           Version: "2012-10-17"
+           Statement:            
+            - 
+              Effect: "Allow"
+              Action:
+                - "s3:*"
+              Resource: 
+                Fn::Join:
+                - ''
+                - ['arn:aws:s3:::',!Ref S3BucketName,'/*']
+
+  # DomainCert:
+  #   Type: AWS::CertificateManager::Certificate
+  #   Properties:
+  #     DomainName: !Ref "DomainName"
+  #     ValidationMethod: "DNS"
+  #     DomainValidationOptions:
+  #     - DomainName: !Ref "DomainName"
+  #       ValidationDomain: !Ref "DomainName"
+
+  TargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      HealthCheckIntervalSeconds: 5
+      HealthCheckTimeoutSeconds: 2
+      HealthCheckPort: 80
+      HealthCheckProtocol: HTTP
+      HealthCheckPath: "/pingTest"
+      Port: 80
+      TargetGroupAttributes:
+      - Key: "deregistration_delay.timeout_seconds"
+        Value: 20
+      Protocol: HTTP
+      TargetType: instance
+      VpcId: !Ref myVPC
+      Tags:
+      - Key: Name
+        Value: csye6225-TargetGroup
+
+  LoadBalancerSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: "LoadBalancer Security Group"
+      GroupName: "LoadBalancerGroupSecurity"
+      VpcId: !Ref myVPC
+      SecurityGroupIngress:
+      - IpProtocol: "tcp"
+        FromPort: 443
+        ToPort: 443
+        CidrIp: "0.0.0.0/0"
+      - IpProtocol: "tcp"
+        FromPort: 80
+        ToPort: 80
+        CidrIp: "0.0.0.0/0"
+      SecurityGroupEgress:
+      - IpProtocol: "tcp"
+        FromPort: 80
+        ToPort: 80
+        DestinationSecurityGroupId: !GetAtt InstanceSecurityGroup.GroupId
+
+
+  LoadBalancer:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      Name: "csye6225LoadBalancer"
+      Scheme: "internet-facing"
+      IpAddressType: "ipv4"
+      Subnets:
+      - !Ref RDSSubnet1
+      - !Ref RDSSubnet2
+      Type: "application"
+      SecurityGroups: 
+      - !GetAtt LoadBalancerSecurityGroup.GroupId
+
+  ListenerDefault:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      DefaultActions:
+      - Type: forward
+        TargetGroupArn: !Ref TargetGroup
+      LoadBalancerArn: !Ref LoadBalancer
+      Port: 443
+      Protocol: HTTPS
+      Certificates : 
+      - CertificateArn: !Ref DomainCert
+
+  ListenerRedirect:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      DefaultActions:
+      - Type: redirect
+        RedirectConfig:
+            Host: "#{host}"
+            Path: "/#{path}"
+            Port: 443
+            Protocol: "HTTPS"
+            Query: "#{query}"
+            StatusCode: "HTTP_301"
+      LoadBalancerArn: !Ref LoadBalancer
+      Port: 80
+      Protocol: HTTP
+
+  InstanceSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Allow http, SSH and SSL to client host
+      VpcId:
+        Ref: myVPC
+      SecurityGroupIngress: 
+      - IpProtocol: tcp
+        FromPort: 80
+        ToPort: 80
+        CidrIp: "0.0.0.0/0"
+      - IpProtocol: tcp
+        FromPort: 22
+        ToPort: 22
+        CidrIp: "0.0.0.0/0"
+      - IpProtocol: tcp
+        FromPort: 443
+        ToPort: 443
+        CidrIp: "0.0.0.0/0"
+      Tags:
+      - Key: Name
+        Value:
+          Fn::Join:
+            - '-'
+            - [{Ref: 'AWS::StackName'}, 'csye6225', 'sg']
+
+  Route53RecordSetA:
+    Type: AWS::Route53::RecordSet
+    Properties: 
+      AliasTarget:
+        DNSName: !GetAtt LoadBalancer.DNSName
+        EvaluateTargetHealth: "true"
+        HostedZoneId: !GetAtt LoadBalancer.CanonicalHostedZoneID
+      HostedZoneName: !Join ["",[!Ref DomainName,"."]]
+      Comment: "User Domain Name"
+      Name: !Join ["",[!Ref DomainName,"."]]
+      Type: "A"
+
+  InstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      Path: "/"
+      Roles: 
+        - !Ref CodeDeployEC2ServiceRole
+    DependsOn: 
+      - CodeDeployEC2ServiceRole
+
+  ASGLaunchConfig: 
+    Type: AWS::AutoScaling::LaunchConfiguration
+    Properties: 
+      KeyName: {Ref : "KeyPair"}
+      ImageId: {Ref: ImageIdparam} 
+      InstanceType: "t2.micro"
+      AssociatePublicIpAddress : "true"
+      IamInstanceProfile : {Ref : InstanceProfile}
+      UserData: 
+        Fn::Base64:
+          Fn::Join:
+            - "\n"
+            - [ "#!/bin/bash -xe",
+                "sudo bash",
+                "export DJANGO_SETTINGS_MODULE=WebProject.settings_dev",
+                "cd /home/centos",
+                "cat > my.cnf << EOF",
+                "[Config]",
+                !Join ["",["RDS_HOST=",!GetAtt MyRDSInstance.Endpoint.Address]],
+                "RDS_UN=csye6225master",
+                "RDS_PASSWORD=csye6225password",
+                "RDS_DB=csye6225",
+                !Join ["",["DOMAIN_NAME=",!Ref DomainName]],
+                !Join ["",["S3_BUCKET=",!Ref S3BucketName]],
+                !Join ["",["SNSTOPICARN=",!Ref SNSTOPICARN]],
+                "EOF",
+              ]
+      SecurityGroups: 
+        - Ref: "InstanceSecurityGroup"
+      BlockDeviceMappings: 
+        - DeviceName: "/dev/sdm"
+          Ebs: 
+            VolumeSize: "50"
+            VolumeType: "gp2"
+            DeleteOnTermination: "true"
+          
+  WebServerGroup: 
+    Type: AWS::AutoScaling::AutoScalingGroup
+    Properties: 
+      Cooldown: "10"
+      VPCZoneIdentifier:
+      - !Ref "RDSSubnet1"
+      - !Ref "RDSSubnet2"
+      LaunchConfigurationName: 
+        Ref: "ASGLaunchConfig"
+      MinSize: "3"
+      MaxSize: "10"
+      DesiredCapacity: "3"
+      TargetGroupARNs: 
+      - !Ref "TargetGroup"
+      Tags:
+      - Key: Name
+        PropagateAtLaunch: "true"
+        Value:
+          Fn::Join:
+            - '-'
+            - [{Ref: 'AWS::StackName'}, 'csye6225', 'EC2']
+      - Key: ec2-type
+        Value: csye-6225
+        PropagateAtLaunch: "true"
+
+  WebServerScaleUpPolicy:
+    Type: AWS::AutoScaling::ScalingPolicy
+    Properties:
+      AutoScalingGroupName: !Ref WebServerGroup
+      AdjustmentType: "ChangeInCapacity"
+      Cooldown: "30"
+      ScalingAdjustment: "1"
+
+
+  WebServerScaleDownPolicy:
+    Type: AWS::AutoScaling::ScalingPolicy
+    Properties:
+      AutoScalingGroupName: !Ref WebServerGroup
+      AdjustmentType: "ChangeInCapacity"
+      Cooldown: "30"
+      ScalingAdjustment: "-1"
+
+  CPUAlarmHigh:
+    Type: "AWS::CloudWatch::Alarm"
+    Properties:
+      AlarmDescription: "Scale-up if CPU > 10% for 1 minutes"
+      MetricName: "CPUUtilization"
+      Namespace: "AWS/EC2"
+      Statistic: "Average"
+      Period: "60"
+      EvaluationPeriods: "1"
+      DatapointsToAlarm: "1"
+      Threshold: "10"
+      AlarmActions:
+      - !Ref WebServerScaleUpPolicy
+      Dimensions:
+      - Name: AutoScalingGroupName
+        Value: !Ref WebServerGroup
+      ComparisonOperator: "GreaterThanThreshold"
+
+  CPUAlarmLow:
+    Type: "AWS::CloudWatch::Alarm"
+    Properties:
+      AlarmDescription: "Scale-down if CPU < 5% for 1 minutes"
+      MetricName: "CPUUtilization"
+      Namespace: "AWS/EC2"
+      Statistic: "Average"
+      Period: "60"
+      EvaluationPeriods: "1"
+      DatapointsToAlarm: "1"
+      Threshold: "5"
+      AlarmActions:
+      - !Ref WebServerScaleDownPolicy
+      Dimensions:
+      - Name: AutoScalingGroupName
+        Value: !Ref WebServerGroup
+      ComparisonOperator: "LessThanThreshold"
+
+  MyDynamoDB: #creation of DynamoDB
+    Type: AWS::DynamoDB::Table
+    Properties:
+      AttributeDefinitions:
+        - 
+          AttributeName: "id"
+          AttributeType: "S"
+      KeySchema:
+        - 
+          AttributeName: "id"
+          KeyType: "HASH"
+      ProvisionedThroughput: 
+        ReadCapacityUnits: "5"
+        WriteCapacityUnits: "5"
+      TableName: "csye6225"
+      TimeToLiveSpecification:
+        AttributeName: passwordTokenExpiry
+        Enabled: 'true'
+      Tags:
+      - Key: Name
+        Value:
+          Fn::Join:
+            - '-'
+            - [{Ref: 'AWS::StackName'}, 'csye6225', 'DynamoDB']
+
+  SNSAccess:
+    Type: AWS::IAM::ManagedPolicy
+    Properties:
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+        - Action:
+          - sns:*
+          Effect: Allow
+          Resource: "*"
+      ManagedPolicyName: SNSAccess
+      Roles:
+      - Ref: CodeDeployEC2ServiceRole
+
+  CodeDeployServiceRole:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      Path: /
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - codedeploy.amazonaws.com
+            Action:
+              - 'sts:AssumeRole'
+      ManagedPolicyArns:
+        - 'arn:aws:iam::aws:policy/service-role/AWSCodeDeployRole'
+        - 'arn:aws:iam::aws:policy/CloudWatchAgentServerPolicy'
+        - 'arn:aws:iam::aws:policy/CloudWatchAgentAdminPolicy'
+      RoleName: CodeDeployServiceRole
+
+  csye6225Webapp:
+    Type: 'AWS::CodeDeploy::Application'
+    Properties:
+      ApplicationName: csye6225-webapp
+      ComputePlatform: Server
+
+  DeploymentGroup:
+    Type: 'AWS::CodeDeploy::DeploymentGroup'
+    Properties:
+      ApplicationName: !Ref csye6225Webapp
+      DeploymentGroupName: csye6225-webapp-deployment
+      Ec2TagFilters:
+        - Type: KEY_AND_VALUE
+          Key: ec2-type
+          Value: csye-6225
+      DeploymentConfigName: CodeDeployDefault.AllAtOnce
+      LoadBalancerInfo:
+        TargetGroupInfoList:
+        - Name: !GetAtt TargetGroup.TargetGroupName
+      AutoScalingGroups: 
+      - !Ref WebServerGroup
+      DeploymentStyle:
+        DeploymentType: "IN_PLACE"
+        DeploymentOption: "WITHOUT_TRAFFIC_CONTROL"
+      AutoRollbackConfiguration:
+        Enabled: true
+        Events:
+          - DEPLOYMENT_FAILURE
+      ServiceRoleArn: !GetAtt CodeDeployServiceRole.Arn

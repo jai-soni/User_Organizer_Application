@@ -1,3 +1,17 @@
+#!/bin/bash
+
+
+# echo "The following are the regions available for deleting stacks : "
+
+# REGIONS=$(aws ec2 describe-regions | jq '.Regions')
+# echo $REGIONS | jq -c '.[]'  | while read i; do
+#   REGION=$(echo $i | jq -r '.RegionName')
+#       echo "$REGION"
+# done
+
+# echo "Lets first configure your AWS account"
+# aws configure
+
 StackList=$(aws cloudformation list-stacks --stack-status-filter CREATE_COMPLETE UPDATE_IN_PROGRESS CREATE_IN_PROGRESS --query 'StackSummaries[].StackName' --output text )
 
 if [[ -z "$StackList" ]]

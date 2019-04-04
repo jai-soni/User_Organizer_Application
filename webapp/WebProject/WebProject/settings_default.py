@@ -42,11 +42,11 @@ config.read(pathToConfig)
 SECRET_KEY = 'l_k3zyn7$2j*vsvk&m3t5&*bp++r*=v*$c9gmoiy9z0xk5u_6m'
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = False
 
-ALLOWED_HOSTS = ['*']
 SNSTOPICARN= config['Config']['SNSTOPICARN']
 DOMAIN_NAME= config['Config']['DOMAIN_NAME']
+ALLOWED_HOSTS = ['*']
 
 # Define whether to run in dev environment or default(local) environment
 PROFILE = 'default'

@@ -71,6 +71,21 @@ cd csye6225-spring2019/infrastructure/aws/cloudformation/
 ./csye6225-aws-cf-create-cicd-stack
 ```
 
+
+#### To create network and application stack using single script along with the load balancer and Auto-scaling enabled
+
+```bash
+cd csye6225-spring2019/infrastructure/aws/cloudformation/
+./create_network_application.sh
+```
+
+#### To create serverless stack
+
+```bash
+cd csye6225-spring2019/infrastructure/aws/cloudformation/
+./csye6225-aws-cf-create-serverless-stack.sh
+```
+
 #### To Terminate a Application Stack
 
 ```bash

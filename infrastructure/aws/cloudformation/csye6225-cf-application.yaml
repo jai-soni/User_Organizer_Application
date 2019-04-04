@@ -274,3 +274,47 @@ Resources:
       ManagedPolicyName: SNSAccess
       Roles:
       - Ref: CodeDeployEC2ServiceRole
+
+  CodeDeployServiceRole:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      Path: /
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - codedeploy.amazonaws.com
+            Action:
+              - 'sts:AssumeRole'
+      ManagedPolicyArns:
+        - 'arn:aws:iam::aws:policy/service-role/AWSCodeDeployRole'
+        - 'arn:aws:iam::aws:policy/CloudWatchAgentServerPolicy'
+        - 'arn:aws:iam::aws:policy/CloudWatchAgentAdminPolicy'
+      RoleName: CodeDeployServiceRole
+
+  csye6225Webapp:
+    Type: 'AWS::CodeDeploy::Application'
+    Properties:
+      ApplicationName: csye6225-webapp
+      ComputePlatform: Server
+
+  DeploymentGroup:
+    Type: 'AWS::CodeDeploy::DeploymentGroup'
+    Properties:
+      ApplicationName: !Ref csye6225Webapp
+      DeploymentGroupName: csye6225-webapp-deployment
+      Ec2TagFilters:
+        - Type: KEY_AND_VALUE
+          Key: ec2-type
+          Value: csye-6225
+      DeploymentConfigName: CodeDeployDefault.OneAtATime
+      DeploymentStyle:
+        DeploymentType: "IN_PLACE"
+        DeploymentOption: "WITHOUT_TRAFFIC_CONTROL"
+      AutoRollbackConfiguration:
+        Enabled: true
+        Events:
+          - DEPLOYMENT_FAILURE
+      ServiceRoleArn: !GetAtt CodeDeployServiceRole.Arn

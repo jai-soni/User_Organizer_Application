@@ -228,7 +228,7 @@ def validatePassword(password):
 
 # Validing username
 def validateUserName(username):
-	valid = re.search(r'\w+[.|\w]\w+@\w+[.]\w+[.|\w+]\w+', username)
+	valid = re.search(r'^[\w\.\+\-]+\@[\w]+\.[a-z]{2,3}', username)
 	# valid = re.search(r'^\w+@[a-zA-Z_]+?\.[a-zA-Z]{2,3}$', username)
 	if valid:
 		return True
@@ -512,6 +512,10 @@ def noteFromId(request, note_id=""):
 				logger.debug("Incorrect user details")
 				statsd.incr('api.note_id.DELETE.401')
 				return JsonResponse({'message': 'Error : Incorrect user details'}, status=401)
+		else:
+			logger.debug("wrong request method")
+			statsd.incr('api.note_id.401')
+			return JsonResponse({'message': 'Please use GET, PUT or DELETE'}, status=401)
 	except Exception as e:
 		logger.error("Something Happened: %s", e)
 		statsd.incr('api.note_id.DELETE.400')
@@ -605,6 +609,7 @@ def addAttachmentToNotes(request,note_id=""):
 		logger.error("Something Happened: %s", e)
 		statsd.incr('api.note_attachment.GET.400')
 		return JsonResponse({'Error': 'Bad Request'}, status=400)
+
 @csrf_exempt
 def updateOrDeleteAttachments(request,note_id="",attachment_id=""):
 	statsd.incr('api.note_attachment_id')
@@ -724,42 +729,52 @@ def get404(request):
 
 @csrf_exempt
 def passwordReset(request):
-	statsd.incr('api.passwordReset')
-	email=request.POST.get('email')
-	print(email)
-	print(type(email))
-	#Get email and verify if it exists in db
-	if (email == ""):
-		logger.debug("email is empty")
-		return JsonResponse({'message': 'Email cant be empty'}, status=400)
-	email_status = validateUserName(email)
-	domain_name = settings.DOMAIN_NAME
-	if email_status== True:
-		if User.objects.filter(username=email).exists():
-			logger.info("Sending notification to SNS")
-			client = boto3.client('sns',region_name='us-east-1')
-			response = client.publish(
-				TargetArn=settings.SNSTOPICARN,
-				MessageStructure='String',
-				Message="Reset Email",
-				MessageAttributes={
-					"URL": {
-							"DataType": "String",
-							"StringValue": str(domain_name)
-						},
-					"email": {
-							"DataType" : "String",
-							"StringValue" : str(email)
-						}
-					}
-				)
-			statsd.incr('api.passwordReset.POST.200')
-			return JsonResponse({"message": " : you will receive password reset link if the email address exists in our system"})
+	try:
+		if request.method == 'POST':
+			statsd.incr('api.passwordReset')
+			email=request.POST.get('email')
+			print(email)
+			print(type(email))
+			#Get email and verify if it exists in db
+			if (email == ""):
+				logger.debug("email is empty")
+				return JsonResponse({'message': 'Email cant be empty'}, status=400)
+			email_status = validateUserName(email)
+			domain_name = settings.DOMAIN_NAME
+			if email_status== True:
+				if User.objects.filter(username=email).exists():
+					logger.info("Sending notification to SNS")
+					client = boto3.client('sns',region_name='us-east-1')
+					response = client.publish(
+						TargetArn=settings.SNSTOPICARN,
+						MessageStructure='String',
+						Message="Reset Email",
+						MessageAttributes={
+							"URL": {
+									"DataType": "String",
+									"StringValue": str(domain_name)
+								},
+							"email": {
+									"DataType" : "String",
+									"StringValue" : str(email)
+								}
+							}
+						)
+					statsd.incr('api.passwordReset.POST.200')
+					return JsonResponse({"message": " : you will receive password reset link if the email address exists in our system"}, safe=False)
+				else:
+					statsd.incr('api.passwordReset.POST.400')
+					return JsonResponse({"message": " : you will receive password reset link if the email address exists in our system"}, safe=False)
+			else:
+				statsd.incr('api.passwordReset.POST.400')
+				return JsonResponse({"message":email_status}, status=400, safe=False)
 		else:
-			statsd.incr('api.passwordReset.POST.400')
-			return JsonResponse({"message": " : you will receive password reset link if the email address exists in our system"})
-	else:
-		statsd.incr('api.passwordReset.POST.400')
-		return JsonResponse(email_status, status=400)
+			return JsonResponse({'message': 'Error : Request method should be POST'}, status=400)
+	except Exception as e:
+			logger.error("Something Happened: %s", e)
+			statsd.incr('api.password_reset.POST.400')
+			return JsonResponse({'Error': 'Bad Request'}, status=400)
 
-
+@csrf_exempt
+def pingTest(request):
+	return JsonResponse({"message": " : Ping Test Successful"}, status=200)

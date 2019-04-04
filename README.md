@@ -2,12 +2,12 @@
 
 ## Team Information
 
-| Name | NEU ID | Email Address |
-| --- | --- | --- |
-| Jai Soni| 001822913|soni.j@husky.neu.edu |
-| Krapali Rai| 001813750 | rai.k@husky.neu.edu |
-| Riddhi Kakadiya| 001811354 | kamlesh.r@husky.neu.edu |
-| Sreerag Mandakathil Sreenath| 001838559| mandakathil.s@husky.neu.edu|
+| Name | NEU ID | Email Address | Domain |
+| --- | --- | --- | --- |
+| Jai Soni| 001822913|soni.j@husky.neu.edu | csye6225-spring2019-sonij.me |
+| Krapali Rai| 001813750 | rai.k@husky.neu.edu | csye6225-spring2019-raik.me. |
+| Riddhi Kakadiya| 001811354 | kamlesh.r@husky.neu.edu | csye6225-spring2019-kamleshr.me |
+| Sreerag Mandakathil Sreenath| 001838559| mandakathil.s@husky.neu.edu| csye6225-s19-mandakathils.me |
 
 
 ## Technology Stack
@@ -124,6 +124,24 @@ Registered successfully
 $ curl http://{EC2_hostname}/reset
 ```
 
+## Web End-points
+
+num | request type | path | required variables |Authorization type |
+| --- | --- | --- | --- | --- |
+| 1 | GET | / | NA | No auth required |
+| 2 | POST | /user/register | username:"", Password: "" | No auth required |
+| 3 | POST | /note | title:"", content: "" | Basic auth required |
+| 4 | GET | /note | NA | Basic auth required |
+| 5 | GET | /note/id | NA | Basic auth required |
+| 6 | DELETE | /note/id | NA | Basic auth required |
+| 7 | PUT | /note/id | title:"", content: "" | Basic auth required |
+| 8 | POST | /note/attachments | attachment: ("attach-file") | Basic auth required |
+| 9 | PUT | /note/attachments/id | attachment: ("attach-new file") | Basic auth required
+| 10 | GET | /note/attachments/id | NA | Basic auth required |
+| 11 | DELETE | /note/attachments/id | NA | Basic auth required |
+ ________________________________________________________________________________________________
+
+
 ## Deploy Instructions
 
 
@@ -138,9 +156,14 @@ cd csye6225-spring2019/webapp/WebProject/
 python3 manage.py test
 ```
 
-
 ## CI/CD
 Any changes made to master branch will trigger a new build
+
+
+## LAMDA function 
+Prerequsites: 
+--User need to have a verified domain name
+--Need to request for SES sandbox
 
 
 ## Checking UDP port for statsd streaming
