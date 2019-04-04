@@ -139,6 +139,7 @@ num | request type | path | required variables |Authorization type |
 | 9 | PUT | /note/attachments/id | attachment: ("attach-new file") | Basic auth required
 | 10 | GET | /note/attachments/id | NA | Basic auth required |
 | 11 | DELETE | /note/attachments/id | NA | Basic auth required |
+| 12 | POST | /reset | email: "" | Basic auth required |
  ________________________________________________________________________________________________
 
 
