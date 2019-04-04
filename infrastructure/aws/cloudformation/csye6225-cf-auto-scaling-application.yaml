@@ -331,7 +331,7 @@ Resources:
   WebServerGroup: 
     Type: AWS::AutoScaling::AutoScalingGroup
     Properties: 
-      Cooldown: "10"
+      Cooldown: "60"
       VPCZoneIdentifier:
       - !Ref "RDSSubnet1"
       - !Ref "RDSSubnet2"
