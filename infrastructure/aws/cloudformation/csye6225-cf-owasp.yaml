@@ -238,16 +238,23 @@ Resources:
       ByteMatchTuples:
         - FieldToMatch:
             Type: HEADER
-            Data: cookie
-          PositionalConstraint: CONTAINS
-          TargetString: example-session-id
-          TextTransformation: URL_DECODE
-        - FieldToMatch:
-            Type: HEADER
             Data: authorization
-          PositionalConstraint: ENDS_WITH
-          TargetString: .TJVA95OrM7E2cBab30RMHrHDcEfxjoYZgeFONFh7HgQ
-          TextTransformation: URL_DECODE
+          PositionalConstraint: STARTS_WITH
+          TargetString: Basic
+          TextTransformation: NONE
+
+  noteAPIStringSet:
+    Type: AWS::WAFRegional::ByteMatchSet
+    Condition: isRegional
+    Properties:
+      Name: !Join ['-', [!Ref stackPrefix, 'match-note-api']]
+      ByteMatchTuples:
+        - FieldToMatch:
+            Type: URI
+          PositionalConstraint: CONTAINS
+          TargetString: note
+          TextTransformation: NONE
+
   wafgAuthTokenStringSet:
     Type: AWS::WAF::ByteMatchSet
     Condition: isGlobal
@@ -263,9 +270,10 @@ Resources:
         - FieldToMatch:
             Type: HEADER
             Data: authorization
-          PositionalConstraint: ENDS_WITH
-          TargetString: .TJVA95OrM7E2cBab30RMHrHDcEfxjoYZgeFONFh7HgQ
-          TextTransformation: URL_DECODE
+          PositionalConstraint: STARTS_WITH
+          TargetString: Basic
+          TextTransformation: NONE
+
   wafrAuthTokenRule:
     Type: AWS::WAFRegional::Rule
     Condition: isRegional
@@ -274,8 +282,12 @@ Resources:
       Name: !Join ['-', [!Ref stackPrefix, 'detect-bad-auth-tokens']]
       Predicates:
         - Type: ByteMatch
-          Negated: false
+          Negated: true
           DataId: !Ref wafrAuthTokenStringSet
+        - Type: ByteMatch
+          Negated: false
+          DataId: !Ref noteAPIStringSet
+
   wafgAuthTokenRule:
     Type: AWS::WAF::Rule
     Condition: isGlobal
@@ -576,45 +588,16 @@ Resources:
       Name: !Join ['-', [!Ref stackPrefix, 'match-php-insecure-var-refs']]
       ByteMatchTuples:
         - FieldToMatch:
-            Type: QUERY_STRING
+            Type: BODY
           PositionalConstraint: CONTAINS
-          TargetString: _SERVER[
-          TextTransformation: URL_DECODE
+          TargetString: "@"
+          TextTransformation: NONE
         - FieldToMatch:
-            Type: QUERY_STRING
+            Type: BODY
           PositionalConstraint: CONTAINS
-          TargetString: _ENV[
-          TextTransformation: URL_DECODE
-        - FieldToMatch:
-            Type: QUERY_STRING
-          PositionalConstraint: CONTAINS
-          TargetString: auto_prepend_file=
-          TextTransformation: URL_DECODE
-        - FieldToMatch:
-            Type: QUERY_STRING
-          PositionalConstraint: CONTAINS
-          TargetString: auto_append_file=
-          TextTransformation: URL_DECODE
-        - FieldToMatch:
-            Type: QUERY_STRING
-          PositionalConstraint: CONTAINS
-          TargetString: allow_url_include=
-          TextTransformation: URL_DECODE
-        - FieldToMatch:
-            Type: QUERY_STRING
-          PositionalConstraint: CONTAINS
-          TargetString: disable_functions=
-          TextTransformation: URL_DECODE
-        - FieldToMatch:
-            Type: QUERY_STRING
-          PositionalConstraint: CONTAINS
-          TargetString: open_basedir=
-          TextTransformation: URL_DECODE
-        - FieldToMatch:
-            Type: QUERY_STRING
-          PositionalConstraint: CONTAINS
-          TargetString: safe_mode=
-          TextTransformation: URL_DECODE
+          TargetString: "."
+          TextTransformation: NONE
+
   wafgPHPInsecureQSStringSet:
     Type: AWS::WAF::ByteMatchSet
     Condition: isGlobal
@@ -669,14 +652,10 @@ Resources:
       ByteMatchTuples:
         - FieldToMatch:
             Type: URI
-          PositionalConstraint: ENDS_WITH
-          TargetString: php
-          TextTransformation: URL_DECODE
-        - FieldToMatch:
-            Type: URI
-          PositionalConstraint: ENDS_WITH
-          TargetString: /
-          TextTransformation: URL_DECODE
+          PositionalConstraint: CONTAINS
+          TargetString: reset
+          TextTransformation: NONE
+
   wafgPHPInsecureURIStringSet:
     Type: AWS::WAF::ByteMatchSet
     Condition: isGlobal
@@ -701,7 +680,7 @@ Resources:
       Name: !Join ['-', [!Ref stackPrefix, 'detect-php-insecure']]
       Predicates:
         - Type: ByteMatch
-          Negated: false
+          Negated: true
           DataId: !Ref wafrPHPInsecureQSStringSet
         - Type: ByteMatch
           Negated: false
