@@ -3,7 +3,7 @@
 #Exit immediately if a command exits with a non-zero exit status.
 set -e
 ##Get Load balacer ARN
-LOADBALANCER=$(aws elbv2 describe-load-balancers --query LoadBalancers[0].LoadBalancerArn --output text)
+LOADBALANCER=$(aws elbv2 describe-load-balancers | jq -c '.LoadBalancers[] | select(.LoadBalancerName == "csye6225LoadBalancer")' | jq -r '.LoadBalancerArn')
 
 echo "ELBResourceARN: $LOADBALANCER"
 ##Creating Stack
