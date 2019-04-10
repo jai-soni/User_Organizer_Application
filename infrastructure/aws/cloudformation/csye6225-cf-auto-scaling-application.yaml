@@ -182,6 +182,25 @@ Resources:
       - Key: Name
         Value: csye6225-TargetGroup
 
+  TargetGroupNoWaf:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      HealthCheckIntervalSeconds: 5
+      HealthCheckTimeoutSeconds: 2
+      HealthCheckPort: 80
+      HealthCheckProtocol: HTTP
+      HealthCheckPath: "/pingTest"
+      Port: 80
+      TargetGroupAttributes:
+      - Key: "deregistration_delay.timeout_seconds"
+        Value: 20
+      Protocol: HTTP
+      TargetType: instance
+      VpcId: !Ref myVPC
+      Tags:
+      - Key: Name
+        Value: csye6225-TargetGroup
+
   LoadBalancerSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
@@ -201,7 +220,7 @@ Resources:
       - IpProtocol: "tcp"
         FromPort: 80
         ToPort: 80
-        DestinationSecurityGroupId: !GetAtt InstanceSecurityGroup.GroupId
+        CidrIp: "0.0.0.0/0"
 
 
   LoadBalancer:
@@ -245,6 +264,48 @@ Resources:
       Port: 80
       Protocol: HTTP
 
+
+  LoadBalancerNoWaf:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      Name: "csye6225LoadBalancerNoWaf"
+      Scheme: "internet-facing"
+      IpAddressType: "ipv4"
+      Subnets:
+      - !Ref RDSSubnet1
+      - !Ref RDSSubnet2
+      Type: "application"
+      SecurityGroups: 
+      - !GetAtt LoadBalancerSecurityGroup.GroupId
+
+  ListenerDefaultNoWaf:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      DefaultActions:
+      - Type: forward
+        TargetGroupArn: !Ref TargetGroupNoWaf
+      LoadBalancerArn: !Ref LoadBalancerNoWaf
+      Port: 443
+      Protocol: HTTPS
+      Certificates : 
+      - CertificateArn: !Ref DomainCert
+
+  ListenerRedirectNoWaf:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      DefaultActions:
+      - Type: redirect
+        RedirectConfig:
+            Host: "#{host}"
+            Path: "/#{path}"
+            Port: 443
+            Protocol: "HTTPS"
+            Query: "#{query}"
+            StatusCode: "HTTP_301"
+      LoadBalancerArn: !Ref LoadBalancerNoWaf
+      Port: 80
+      Protocol: HTTP
+
   InstanceSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
@@ -255,15 +316,7 @@ Resources:
       - IpProtocol: tcp
         FromPort: 80
         ToPort: 80
-        CidrIp: "0.0.0.0/0"
-      - IpProtocol: tcp
-        FromPort: 22
-        ToPort: 22
-        CidrIp: "0.0.0.0/0"
-      - IpProtocol: tcp
-        FromPort: 443
-        ToPort: 443
-        CidrIp: "0.0.0.0/0"
+        SourceSecurityGroupId: !GetAtt LoadBalancerSecurityGroup.GroupId
       Tags:
       - Key: Name
         Value:
@@ -281,6 +334,18 @@ Resources:
       HostedZoneName: !Join ["",[!Ref DomainName,"."]]
       Comment: "User Domain Name"
       Name: !Join ["",[!Ref DomainName,"."]]
+      Type: "A"
+
+  Route53RecordSetANoWaf:
+    Type: AWS::Route53::RecordSet
+    Properties: 
+      AliasTarget:
+        DNSName: !GetAtt LoadBalancerNoWaf.DNSName
+        EvaluateTargetHealth: "true"
+        HostedZoneId: !GetAtt LoadBalancerNoWaf.CanonicalHostedZoneID
+      HostedZoneName: !Join ["",[!Ref DomainName,"."]]
+      Comment: "User Domain Name"
+      Name: !Join ["",["nowaf.",!Ref DomainName,"."]]
       Type: "A"
 
   InstanceProfile:
@@ -342,6 +407,7 @@ Resources:
       DesiredCapacity: "3"
       TargetGroupARNs: 
       - !Ref "TargetGroup"
+      - !Ref "TargetGroupNoWaf"
       Tags:
       - Key: Name
         PropagateAtLaunch: "true"
@@ -480,9 +546,6 @@ Resources:
           Key: ec2-type
           Value: csye-6225
       DeploymentConfigName: CodeDeployDefault.AllAtOnce
-      LoadBalancerInfo:
-        TargetGroupInfoList:
-        - Name: !GetAtt TargetGroup.TargetGroupName
       AutoScalingGroups: 
       - !Ref WebServerGroup
       DeploymentStyle:
