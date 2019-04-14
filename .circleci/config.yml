@@ -63,4 +63,5 @@ workflows:
                   - assignment6
                   - assignment7
                   - assignment8
+                  - demo_test
                   - master
