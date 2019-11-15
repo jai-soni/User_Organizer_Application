@@ -9,6 +9,9 @@
 | Riddhi Kakadiya| 001811354 | kamlesh.r@husky.neu.edu | csye6225-spring2019-kamleshr.me |
 | Sreerag Mandakathil Sreenath| 001838559| mandakathil.s@husky.neu.edu| csye6225-s19-mandakathils.me |
 
+## Application Architecture
+
+![alt text](https://raw.githubusercontent.com/jai-soni/csye6225-spring2019/master/csye6225-design.JPG)
 
 ## Technology Stack
 The web application is build on Django-python based server backend and uses MySql for the relational database
