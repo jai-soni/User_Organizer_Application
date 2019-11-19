@@ -11,7 +11,7 @@
 
 ## Application Architecture
 
-![alt text](https://raw.githubusercontent.com/jai-soni/csye6225-spring2019/master/csye6225-design.JPG)
+![Image](https://raw.githubusercontent.com/jai-soni/csye6225-spring2019/master/csye6225-design.JPG)
 
 ## Technology Stack
 The web application is build on Django-python based server backend and uses MySql for the relational database
