@@ -8,7 +8,7 @@ Django==2.1.5
 django-statsd==2.3.0
 django-statsd-mozilla==0.4.0
 django-truncate==0.1
-djangorestframework==3.9.1
+djangorestframework==3.11.2
 docutils==0.14
 gunicorn==19.9.0
 jmespath==0.9.3
